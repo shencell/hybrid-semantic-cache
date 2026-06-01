@@ -1,3 +1,22 @@
+Metadata-Version: 2.4
+Name: hybrid-semantic-cache
+Version: 0.1.1
+Summary: A robust middleware for hybrid semantic caching, text normalization, and vector search optimization.
+Author-email: Sandy Wicaksono <sandywidarman@gmail.com>
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: sentence-transformers
+Requires-Dist: faiss-cpu
+Requires-Dist: google-generativeai
+Requires-Dist: matplotlib
+Requires-Dist: numpy
+Requires-Dist: pandas
+
 # Hybrid Semantic Cache Middleware
 
 A robust middleware designed to optimize Large Language Model (LLM) query processing through hybrid semantic caching and advanced text normalization. 
