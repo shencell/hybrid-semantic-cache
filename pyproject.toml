@@ -1,0 +1,31 @@
+```toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid-semantic-cache"
+version = "0.1.0"
+authors = [
+  { name="Sandy Wicaksono", email="sandywidarman@gmail.com" },
+]
+description = "A robust middleware for hybrid semantic caching, text normalization, and vector search optimization."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    fastapi
+    uvicorn
+    sentence-transformers
+    faiss-cpu
+    google-generativeai
+    matplotlib
+    numpy
+    pandas
+    # Tulis library dari requirements.txt kamu di sini
+    # Contoh: "numpy>=1.21.0", "sentence-transformers>=2.2.2"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
