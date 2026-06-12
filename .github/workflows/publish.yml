@@ -1,0 +1,50 @@
+# Publishes to PyPI automatically when you push a version tag:
+#
+#     git tag v0.2.0
+#     git push origin v0.2.0
+#
+# One-time setup (PyPI "Trusted Publisher" - no API token/secret needed):
+#   1. Open https://pypi.org/manage/project/hybrid-semantic-cache/settings/publishing/
+#   2. Add a new GitHub publisher with:
+#        owner:        shencell
+#        repository:   hybrid-semantic-cache
+#        workflow:     publish.yml
+#        environment:  pypi
+#   3. Done. Pushing a v* tag builds and uploads the release.
+
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # required for PyPI Trusted Publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

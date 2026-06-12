@@ -1,8 +1,15 @@
+# Development environment (library consumers should `pip install hybrid-semantic-cache`).
+# Equivalent to: pip install -e ".[demo,dev]"
+faiss-cpu>=1.7.0
+numpy>=1.24.0
+sentence-transformers>=2.2.0
+
+# demo extra
 fastapi
 uvicorn
-sentence-transformers
-faiss-cpu
 google-generativeai
-matplotlib
-numpy
-pandas
+
+# dev extra
+pytest>=7.0
+build
+twine

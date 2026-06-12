@@ -1,6 +1,24 @@
-__pycache__
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# Project-local artifacts
 data
 evaluasi
 output
 reports
-.pytest_cache
+cache/
+*.index
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

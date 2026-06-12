@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-sentence-transformers
-faiss-cpu
-google-generativeai
-matplotlib
-numpy
-pandas

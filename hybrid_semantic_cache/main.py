@@ -1,61 +1,90 @@
-from fastapi import FastAPI
-import time
-import json
-import os
-from api.routes import router as chat_router
-from core.embedding import embedder
-from core.vector_store import vector_store
+"""Self-contained FastAPI demo of the hybrid semantic cache.
 
-# Inisialisasi aplikasi FastAPI
+Run it with the ``demo`` extras installed::
+
+    pip install "hybrid-semantic-cache[demo]"
+    uvicorn hybrid_semantic_cache.main:app --reload
+
+POST a JSON body ``{"message": "..."}`` to ``/chat``. On a cache miss the demo
+falls back to Google Gemini when ``GEMINI_API_KEY`` is set; without a key it
+returns a stub answer so the caching behaviour itself is still observable.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import time
+
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+from .cache import HybridSemanticCache
+from .normalizer import normalize_text
+
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
-    title="Semantic Caching Middleware",
-    description="Eksperimen Jaringan untuk Skripsi: Evaluasi Prompt Gaul Indonesia",
-    version="1.0.0"
+    title="Hybrid Semantic Cache - Demo",
+    description="Normalise -> semantic cache lookup -> LLM fallback on miss.",
+    version="0.2.0",
 )
 
-# --- FASE PRE-WARMING ---
-@app.on_event("startup")
-async def startup_event():
-    print("\n" + "="*50)
-    print("🚀 [STARTUP] Menyalakan Semantic Caching Middleware...")
-    start_time = time.perf_counter()
-    
-    try:
-        # 1. Baca file JSON baku
-        file_path = os.path.join(os.path.dirname(__file__), "data", "dataset_baku.json")
-        with open(file_path, "r", encoding="utf-8") as file:
-            qa_pairs = json.load(file)
-        
-        # 2. Ekstrak hanya teks pertanyaannya saja untuk diubah jadi vektor
-        questions = [item["question"] for item in qa_pairs]
-        
-        print(f"📥 [STARTUP] Membaca {len(questions)} data dari JSON...")
-        
-        # 3. Ubah semua pertanyaan baku menjadi Vektor (Batch Processing)
-        question_vectors = embedder.encode_batch(questions)
-        
-        # 4. Masukkan vektor dan jawaban lengkapnya ke lemari FAISS
-        vector_store.add_to_index(question_vectors, qa_pairs)
-        
-        end_time = time.perf_counter()
-        print(f"✅ [STARTUP] Pre-Warming sukses dalam {end_time - start_time:.4f} detik.")
-        print("📦 [STATUS] Gudang FAISS siap menerima traffic AI!")
-    
-    except Exception as e:
-        print(f"❌ [STARTUP ERROR] Gagal memuat data: {e}")
-        
-    print("="*50 + "\n")
+# One process-wide cache. Tune the threshold to your embedding model.
+cache = HybridSemanticCache(threshold=0.80, max_records=1000)
 
-# Daftarkan gerbang API
-app.include_router(chat_router)
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+def _llm_fallback(prompt: str) -> str:
+    """Answer with Gemini when configured, otherwise return a stub."""
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        return f"[no GEMINI_API_KEY set - stub answer for: {prompt}]"
+
+    import google.generativeai as genai
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-3.1-flash-lite")
+    return model.generate_content(prompt).text
+
+
+@app.post("/chat")
+async def chat(request: ChatRequest) -> dict:
+    """Normalise the prompt, try the semantic cache, fall back to the LLM."""
+    started = time.perf_counter()
+
+    clean = normalize_text(request.message)
+    hit = cache.search(clean)
+
+    if hit is not None:
+        return {
+            "answer": hit.response,
+            "source": "cache",
+            "similarity": hit.score,
+            "normalized_query": clean,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+        }
+
+    answer = _llm_fallback(clean)
+    cache.add(clean, answer)
+    return {
+        "answer": answer,
+        "source": "llm",
+        "similarity": None,
+        "normalized_query": clean,
+        "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+    }
+
 
 @app.get("/")
-async def root():
-    return {
-        "status": "online", 
-        "message": "Middleware Semantic Cache Berjalan. Tembak prompt ke /chat"
-    }
+async def root() -> dict:
+    return {"status": "online", "stats": cache.stats(), "docs": "/docs"}
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)
