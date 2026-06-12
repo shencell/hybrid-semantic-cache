@@ -1,141 +1,119 @@
-# Hybrid Semantic Cache Middleware
+# Hybrid Semantic Cache
 
-A robust middleware designed to optimize Large Language Model (LLM) query processing through hybrid semantic caching and advanced text normalization. 
+FAISS-backed **semantic caching middleware** for LLM applications: normalize
+noisy user queries, retrieve semantically similar cached answers locally, and
+only call the cloud LLM on a real miss — cutting latency and API cost.
 
-Built to accelerate responses from cloud LLMs (like Google Gemini 1.5 Flash), this library intercepts typo-heavy or colloquial queries, normalizes them, and retrieves cached responses locally using **FAISS** and `all-MiniLM-L6-v2` embeddings. This architecture significantly cuts down cloud latency and reduces API usage costs.
+```
+user query ──▶ normalize ──▶ semantic lookup (FAISS) ──┬─▶ HIT  → cached answer (ms)
+                                                       └─▶ MISS → your LLM → cache.add()
+```
 
-## 🚀 Key Features
-* **Query Normalization:** Automatically handles typos and slang terms before embedding, increasing cache hit rates.
-* **Local Vector Caching:** Utilizes FAISS for lightning-fast similarity search and retrieval.
-* **LLM Latency Reduction:** Bypasses cloud LLM API calls for recurring or semantically similar queries.
-* **FastAPI Ready:** Designed to be easily integrated into modern asynchronous Python backend systems.
+## Features
 
-## 📦 Installation
+- **Semantic lookup** — cosine similarity over sentence-transformer embeddings
+  (FAISS `IndexFlatIP` / `IndexIDMap2`), with a configurable threshold.
+- **LRU eviction** — hard `max_records` capacity; least-recently-used entries
+  are evicted from both the vector index and the metadata store.
+- **Disk persistence** — pass `persist_dir` and the cache survives restarts.
+- **Pluggable embeddings** — inject your own `encode_fn` (custom models,
+  prefixing rules such as e5's `"query: "`, GPU batching) or let the library
+  lazily load a SentenceTransformer for you.
+- **Indonesian text normalization** — `normalize_text()` rewrites slang/typos
+  ("gmn cr ganti pw?") into standard text before embedding, raising hit rates.
+- **Hit tracking** — per-entry `hits` counter and `last_accessed` timestamps.
 
-Install the package directly via pip:
+## Installation
 
 ```bash
 pip install hybrid-semantic-cache
-
-
-💻 Prerequisites
-Python 3.8 or higher.
-
-Google Gemini API Key (if using the default fallback LLM).
-
-Set your API key as an environment variable before running your application:
-
-# Windows
-set GEMINI_API_KEY="YOUR_API_KEY"
-
-# Mac/Linux
-export GEMINI_API_KEY="YOUR_API_KEY"
-
-
-🛠️ Quick Start
-Here is a basic example of how to integrate the middleware into your existing Python application:
-
-import os
-# Note: Adjust the import statements below based on the actual classes in the package
-from hybrid_semantic_cache.main import app 
-from hybrid_semantic_cache.normalizer import normalize_text
-
-# Example: Processing a typo-heavy user query
-user_query = "Tlong bkinin srt resign dong" 
-
-# 1. The middleware normalizes the text
-clean_query = normalize_text(user_query)
-
-# 2. Checks the local FAISS cache for a semantic match using all-MiniLM-L6-v2
-# 3. Falls back to the Cloud LLM (Gemini) ONLY if no local match is found, saving latency and cost.
-
-
-📄 License
-This project is licensed under the MIT License.
-Wah, format ini memang sangat khas untuk lampiran dokumen tugas akhir! Sangat rapi, terstruktur, dan sempurna untuk diserahkan kepada dosen penguji.
-
-Namun, karena *middleware* ini sekarang sudah "naik kelas" menjadi *library* publik di ekosistem PyPI yang akan menjadi etalase utamamu di hadapan perekrut Wellfound, kita harus merombak total pendekatannya.
-
-Ada tiga alasan utama mengapa README ini harus diubah:
-
-1. **Bahasa:** Klien global tidak memahami bahasa Indonesia. Kita harus menggunakan bahasa Inggris bernada profesional.
-2. **Cara Kerja Ekosistem PyPI:** Pengguna *library*-mu tidak lagi men-*download* folder `evaluasi` atau menjalankan `uvicorn` dari komputermu. Mereka menginstal *package*-mu ke dalam proyek mereka sendiri menggunakan `pip install`.
-3. **Penghapusan Konteks Akademik:** Kata "Skripsi", "Bab 4", dan instruksi simulasi pengujian harus dihilangkan. Klien hanya peduli pada apa masalah yang bisa diselesaikan oleh kodemu (dalam hal ini: memotong latensi LLM dan menghemat biaya API).
-
-Berikut adalah draf pembaruan `README.md` berstandar industri. **Silakan *copy-paste* teks di bawah ini ke dalam file `README.md` kamu:**
-
----
-
-```markdown
-# Hybrid Semantic Cache Middleware
-
-A robust middleware designed to optimize Large Language Model (LLM) query processing through hybrid semantic caching and advanced text normalization. 
-
-Built to accelerate responses from cloud LLMs (like Google Gemini 1.5 Flash), this library intercepts typo-heavy or colloquial queries, normalizes them, and retrieves cached responses locally using **FAISS** and `all-MiniLM-L6-v2` embeddings. This architecture significantly cuts down cloud latency and reduces API usage costs.
-
-## 🚀 Key Features
-* **Query Normalization:** Automatically handles typos and slang terms before embedding, increasing cache hit rates.
-* **Local Vector Caching:** Utilizes FAISS for lightning-fast similarity search and retrieval.
-* **LLM Latency Reduction:** Bypasses cloud LLM API calls for recurring or semantically similar queries.
-* **FastAPI Ready:** Designed to be easily integrated into modern asynchronous Python backend systems.
-
-## 📦 Installation
-
-Install the package directly via pip:
-
-```bash
-pip install hybrid-semantic-cache
-
+# with the FastAPI + Gemini demo app:
+pip install "hybrid-semantic-cache[demo]"
 ```
 
-## 💻 Prerequisites
+Requires Python 3.9+.
 
-* Python 3.8 or higher.
-* Google Gemini API Key (if using the default fallback LLM).
-
-Set your API key as an environment variable before running your application:
-
-```bash
-# Windows
-set GEMINI_API_KEY="YOUR_API_KEY"
-
-# Mac/Linux
-export GEMINI_API_KEY="YOUR_API_KEY"
-
-```
-
-## 🛠️ Quick Start
-
-Here is a basic example of how to integrate the middleware into your existing Python application:
+## Quick Start
 
 ```python
-import os
-# Note: Adjust the import statements below based on the actual classes in the package
-from hybrid_semantic_cache.main import app 
-from hybrid_semantic_cache.normalizer import normalize_text
+from hybrid_semantic_cache import HybridSemanticCache, normalize_text
 
-# Example: Processing a typo-heavy user query
-user_query = "Tlong bkinin srt resign dong" 
+cache = HybridSemanticCache(
+    threshold=0.80,        # min cosine similarity for a hit
+    max_records=1000,      # LRU eviction beyond this
+    persist_dir="./cache", # optional: survive restarts
+)
 
-# 1. The middleware normalizes the text
-clean_query = normalize_text(user_query)
+query = normalize_text("gmn cr ganti pw email yak?")
 
-# 2. Checks the local FAISS cache for a semantic match using all-MiniLM-L6-v2
-# 3. Falls back to the Cloud LLM (Gemini) ONLY if no local match is found, saving latency and cost.
-
+hit = cache.search(query)
+if hit is not None:
+    print(f"cache hit ({hit.score:.2f}):", hit.response)
+else:
+    answer = call_your_llm(query)          # any provider
+    cache.add(query, answer)
 ```
 
-## 📄 License
+### Custom embeddings (e.g. multilingual-e5)
 
-This project is licensed under the MIT License.
+E5-family models need a `"query: "` prefix and benefit from normalization —
+inject your own encoder and the library never loads a second model:
 
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("intfloat/multilingual-e5-base")
+
+def encode(text: str) -> np.ndarray:
+    return model.encode(f"query: {text}", normalize_embeddings=True)
+
+cache = HybridSemanticCache(encode_fn=encode, dimension=768, threshold=0.92)
 ```
 
-***
+### Metadata, stats, and management
 
-**Catatan Penting Sebelum Update:** 
-Pada bagian `Quick Start` di atas, pastikan kamu menyesuaikan baris `from hybrid_semantic_cache... import ...` dengan nama *class* atau fungsi asli yang kamu buat di dalam file `main.py` atau `normalizer.py` milikmu, agar orang yang mencoba *copy-paste* kodenya tidak mengalami *error*.
-
-Setelah file `README.md` ini kamu simpan, apakah kamu sudah siap untuk mempraktikkan proses *update* versi ke `0.1.1` di `pyproject.toml` dan meluncurkannya ulang ke PyPI lewat terminal?
-
+```python
+entry_id = cache.add(prompt, response, metadata={"sources": [...], "agent": "rag"})
+hit = cache.search(prompt)     # hit.metadata, hit.hits, hit.score
+cache.stats()                  # {'records': ..., 'capacity': ..., 'total_hits': ...}
+cache.remove(entry_id)
+cache.clear()
+len(cache)
 ```
+
+### Low-level building blocks
+
+```python
+from hybrid_semantic_cache import VectorStore, TextEmbedder
+
+store = VectorStore(dimension=384)
+store.add_to_index(vectors, [{"question": q, "answer": a}, ...])
+score, meta = store.search(query_vector)
+store.save("cache.index", "metadata.json")
+store = VectorStore.load("cache.index", "metadata.json")
+```
+
+## Demo app
+
+A self-contained FastAPI service showing the full normalize → cache → LLM
+fallback flow (uses Gemini when `GEMINI_API_KEY` is set, a stub otherwise):
+
+```bash
+pip install "hybrid-semantic-cache[demo]"
+uvicorn hybrid_semantic_cache.main:app
+# POST {"message": "..."} to http://127.0.0.1:8000/chat
+```
+
+## Development
+
+```bash
+git clone https://github.com/shencell/hybrid-semantic-cache
+cd hybrid-semantic-cache
+pip install -e ".[dev]"
+pytest
+```
+
+## License
+
+MIT

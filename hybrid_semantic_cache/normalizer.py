@@ -1,4 +1,14 @@
+"""Indonesian slang / typo normaliser.
+
+Rewrites colloquial chat language ("gmn cr ganti pw yak?") into standard
+Indonesian before embedding, which substantially raises semantic-cache hit
+rates. Purely lexical - fast, deterministic, and free of any LLM call.
+"""
+
+from __future__ import annotations
+
 import re
+
 
 class TextNormalizer:
     def __init__(self):
@@ -14,7 +24,7 @@ class TextNormalizer:
                 "hubungin": "menghubungi", "downloadnya": "mengunduh",
                 "kedaftar": "terdaftar", "keblokir": "terblokir", "kesimpen": "tersimpan",
                 "kegedean": "terlalu besar", "lemot": "lambat", "kenceng": "cepat",
-                
+
                 # --- TRANSLASI BENDA & ISTILAH IT ---
                 "pw": "kata sandi", "password": "kata sandi", "pass": "kata sandi", "pin": "sandi",
                 "nomer": "nomor", "hp": "perangkat", "ponsel": "perangkat", "apk": "aplikasi",
@@ -47,13 +57,13 @@ class TextNormalizer:
         """
         # 1. Ubah semua huruf menjadi kecil (Case Folding)
         text = text.lower()
-        
+
         # 2. Hilangkan tanda baca yang tidak perlu
         text = re.sub(r'[^\w\s]', '', text)
-        
+
         # 3. Pecah kalimat menjadi kata per kata
         words = text.split()
-        
+
         # 4. Ganti kata gaul atau hapus kata sampah
         normalized_words = []
         for word in words:
@@ -64,11 +74,23 @@ class TextNormalizer:
                     normalized_words.append(translated)
             else:
                 normalized_words.append(word)
-                
+
         # 5. Gabungkan kembali menjadi satu kalimat utuh
         final_text = " ".join(normalized_words)
-        
+
         return final_text
+
 
 # Singleton instance
 normalizer = TextNormalizer()
+
+
+def normalize_text(text: str) -> str:
+    """Module-level convenience wrapper around the shared :class:`TextNormalizer`.
+
+    This is the function documented in the README/Quick Start::
+
+        from hybrid_semantic_cache import normalize_text
+        clean = normalize_text("Tlong bkinin srt resign dong")
+    """
+    return normalizer.normalize(text)
